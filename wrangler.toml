@@ -11,3 +11,7 @@ pages_build_output_dir = "."
 [vars]
 # Optional: override in Cloudflare dashboard for preview deployments
 SITE_URL = "https://thinredlineholidaylighting.com"
+
+# Google Solar API proxy (functions/api/solar.js):
+# Set GOOGLE_MAPS_API_KEY in Cloudflare Pages → Settings → Environment variables.
+# Enable "Solar API" + billing on your Google Cloud project.

@@ -23,7 +23,7 @@ Open [http://localhost:8080](http://localhost:8080)
    - **Framework preset:** None
    - **Build command:** *(leave empty)*
    - **Build output directory:** `/` (repository root)
-4. Deploy. Cloudflare serves `index.html`, `404.html`, `robots.txt`, `sitemap.xml`, `_headers`, and `_redirects` automatically.
+4. Deploy. Cloudflare serves `index.html`, `404.html`, `robots.txt`, `sitemap.xml`, `_headers`, `_redirects`, and Pages Functions automatically.
 
 ### Option B: Wrangler CLI
 
@@ -37,118 +37,91 @@ wrangler pages deploy . --project-name=thin-red-line-holiday-lighting
 1. In Pages project → **Custom domains** → add `thinredlineholidaylighting.com`.
 2. Update DNS at your registrar (Cloudflare will provide CNAME or A records).
 3. Enable **Always Use HTTPS** and **Automatic HTTPS Rewrites** in Cloudflare SSL/TLS settings.
-4. Optionally uncomment the www → apex redirect in `_redirects`.
-5. HSTS can be enabled in Cloudflare **SSL/TLS → Edge Certificates** (recommended for production).
 
 ### Preview deployments
 
-Preview URLs use `*.pages.dev`. Absolute URLs in meta tags and JSON-LD point to production (`thinredlineholidaylighting.com`). Update `js/config.js` → `siteUrl` if you need preview-specific canonical URLs.
+Preview URLs use `*.pages.dev`. Absolute URLs in meta tags and JSON-LD point to production (`thinredlineholidaylighting.com`).
 
 ## Project structure
 
 ```
-index.html          Main page (hero, services, estimator, FAQ, contact)
-404.html            Custom not-found page (Cloudflare Pages auto-serves)
-css/styles.css      Styles (cache-busted ?v=1)
-js/config.js        Site URL, business info, estimator rates
-js/estimator.js     Roof/light line estimator (Nominatim + Overpass)
-js/main.js          Navigation, contact form → SMS
-robots.txt          Crawler directives + sitemap reference
-sitemap.xml         Single-page sitemap with absolute production URLs
-_headers            Security + cache headers for Cloudflare Pages
-_redirects          Optional URL redirects (www, legacy paths)
-wrangler.toml       Cloudflare Pages project config
+index.html              Main page (hero, gallery, services, estimator, FAQ, contact)
+404.html                Custom not-found page
+css/styles.css          Festive Christmas-themed styles
+js/config.js            Site URL, business info, estimator rates, optional API key
+js/estimator.js         Roof/light estimator (Google Solar → OSM → manual)
+js/main.js              Navigation, contact form → SMS
+functions/api/solar.js  Cloudflare Pages Function — proxies Google Solar API
+images/                 Company photos (from thinredlineholidaylighting.com)
+_headers / _redirects   Cloudflare Pages config
+wrangler.toml           Pages project metadata
 ```
 
 ## Roof / light line estimator
 
-### How it works
+### Data sources (priority order)
 
-1. **Address lookup tab**
-   - Geocodes the address via [Nominatim](https://nominatim.openstreetmap.org/) (OpenStreetMap, no API key).
-   - Queries [Overpass API](https://overpass-api.de/) for nearby `building` footprints.
-   - Computes polygon area and perimeter → estimated roofline linear feet.
-   - Falls back to manual square footage if no OSM building outline exists.
+1. **Google Solar API** (when configured) — measured roof area, segment count, and pitch via [Building Insights](https://developers.google.com/maps/documentation/solar/building-insights). Same approach as the RoofingLeads project.
+2. **OpenStreetMap** (Overpass + Nominatim) — building footprint polygon, no API key.
+3. **Manual entry** — square footage with perimeter approximation.
 
-2. **Manual entry tab**
-   - Uses home square footage with a perimeter approximation: `√sqft × 4.2`.
+### Google Solar API setup
 
-3. **Adjustments**
-   - Story count, roof type (gable/hip/flat/complex), and coverage (front / front+sides / full).
+1. Create a [Google Cloud project](https://console.cloud.google.com/) and enable **Solar API** (requires billing; Google provides free monthly credits).
+2. Create an API key and restrict it to the Solar API + your domain(s).
+3. **Recommended (keeps key server-side):** In Cloudflare Pages → **Settings** → **Environment variables**, add:
+   ```
+   GOOGLE_MAPS_API_KEY=your-key-here
+   ```
+   The `/api/solar` Pages Function proxies requests to Google.
+4. **Optional client-side fallback:** Set `googleMapsApiKey` in `js/config.js` (restrict the key to your domain in Google Cloud Console).
 
-4. **Pricing**
-   - Configurable in `js/config.js`: `$8–$15/linear foot` installed (materials, labor, removal, storage).
+Without a key, the estimator falls back to OpenStreetMap footprints and manual entry.
 
-### Accuracy limits (shown in UI)
+### Pricing & adjustments
 
-- OSM building footprints are ground footprints, not exact roof edges.
-- Trees, dormers, peaks, and design complexity are not modeled.
-- Output is a **ballpark range** — final quotes come from the team.
+Configurable in `js/config.js`: `$8–$15/linear foot` installed. Adjustments for story count, roof type, coverage (front / front+sides / full), and segment complexity (Google Solar).
 
-### No API keys required
+## Photos
 
-Nominatim requires a descriptive `User-Agent` (configured in `js/config.js`). Respect [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/): one request per user action, no bulk geocoding.
+Real photos sourced from [thinredlineholidaylighting.com](https://thinredlineholidaylighting.com/) (GoDaddy-hosted public images):
 
-## Public reviews & social proof
+| File | Source |
+|------|--------|
+| `hero-installation.jpg` | Main site hero — Christmas light installation |
+| `gallery-residential.jpg` | Site gallery thumbnail |
+| `about-team.jpg` | About page — installation team |
+| `logo.png` | Company logo |
 
-We searched Google, Yelp, Facebook, and general web results for **Thin Red Line Holiday Lighting** reviews. **No substantial public review profile was found** at build time. The site:
+Attribution links to the company website and social profiles in the gallery section.
 
-- Does **not** fabricate testimonials.
-- Links to [Facebook](https://www.facebook.com/2280588978933497), [Instagram](https://www.instagram.com/thinredlineholidaylighting/), and [TikTok](https://www.tiktok.com/@thinredlineholidaylights).
-- Highlights verifiable credentials: firefighter/veteran owned, serving since 2018 (from existing site).
+## Design
+
+Winter evening palette optimized for a **Christmas light installation** business:
+
+- **Midnight navy** base — evokes winter night sky
+- **Evergreen** accents — seasonal without being cartoonish
+- **Warm gold** — Christmas light glow (CTAs, prices, highlights)
+- **Christmas red** — used sparingly for primary buttons (Thin Red Line brand)
+- Subtle CSS bokeh/light gradients, no heavy animation
+- **Playfair Display** for headings, **Inter** for body (accessibility)
+- Real installation photos in hero, gallery, and service cards
 
 ## SEO checklist
 
-### On-page
-
-- [x] Unique `<title>` and meta description with local keywords (Clarksville, Nashville, Bowling Green)
-- [x] Single H1, logical H2 hierarchy
-- [x] Canonical URL (`https://thinredlineholidaylighting.com/`)
-- [x] Open Graph + Twitter Card meta tags with absolute URLs
-- [x] Social preview image (`images/og-image.png`, 1200×630) + favicon
-- [x] JSON-LD: `LocalBusiness`, `Service`, `WebSite`, `FAQPage` with absolute `@id` URLs
-- [x] Internal anchor navigation (services, estimator, FAQ, contact)
+- [x] Local keywords (Clarksville, Nashville, Bowling Green)
+- [x] JSON-LD: LocalBusiness, Service, WebSite, FAQPage
+- [x] Open Graph / Twitter Card with real hero photo
 - [x] Mobile-first responsive layout
-- [x] Semantic HTML (`header`, `main`, `section`, `article`, `nav`, `footer`)
-
-### Technical / Cloudflare
-
-- [x] Static site — no server-side dependencies
-- [x] `robots.txt` with sitemap reference
-- [x] `sitemap.xml` at site root
-- [x] `404.html` for missing routes
-- [x] `_headers` — security headers + long-cache static assets
-- [x] `_redirects` — ready for www/legacy redirects
-- [x] `wrangler.toml` for Pages project metadata
-- [x] Asset cache-busting via `?v=1` query strings
-- [x] `preconnect` hints for Google Fonts
-- [x] No cookie banner blocking content (old site had intrusive cookie modal)
-
-### Improvements over old site (thinredlineholidaylighting.com)
-
-| Old site issue | New site fix |
-|---|---|
-| GoDaddy builder, thin content | Custom static site with deep service/FAQ content |
-| Duplicate H2 headings | Unique, keyword-rich heading hierarchy |
-| No structured data | Full JSON-LD LocalBusiness + FAQ |
-| No instant estimator | OSM-powered roofline estimator + manual fallback |
-| Placeholder/base64 images | Clean typography-first design (no broken images) |
-| Cookie overlay on first visit | No blocking overlays |
-| Weak CTAs | Prominent call, text, and estimate CTAs throughout |
+- [x] Semantic HTML
 
 ## Updating production URL
 
-Edit `js/config.js`:
+Edit `js/config.js` → `siteUrl`. Also update canonical/OG URLs in `index.html` and `sitemap.xml` if the domain changes.
 
-```js
-siteUrl: 'https://thinredlineholidaylighting.com',
-```
+After CSS/JS changes, increment `?v=N` in `index.html` and `404.html` to bust Cloudflare cache.
 
-Also update canonical/OG URLs in `index.html`, `sitemap.xml`, and JSON-LD if the domain changes.
-
-After CSS/JS changes, increment `?v=1` → `?v=2` in `index.html` and `404.html` to bust Cloudflare cache (or purge cache in dashboard).
-
-## Contact info (from existing site)
+## Contact info
 
 - **Phone:** 925-895-4443, 270-604-5265
 - **Service areas:** Clarksville TN, Nashville TN, Bowling Green KY, Middle Tennessee

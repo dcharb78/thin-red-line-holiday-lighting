@@ -45,5 +45,11 @@ window.SITE_CONFIG = {
     },
     /** Nominatim requires a descriptive User-Agent. */
     nominatimUserAgent: 'ThinRedLineHolidayLighting/1.0 (quote-estimator; contact@thinredlineholidaylighting.com)',
+    /**
+     * Optional Google Maps Platform key for client-side Solar API fallback.
+     * Prefer Cloudflare env var GOOGLE_MAPS_API_KEY + /api/solar proxy (keeps key server-side).
+     * Restrict any browser key to your domain in Google Cloud Console.
+     */
+    googleMapsApiKey: '',
   },
 };

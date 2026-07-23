@@ -1,6 +1,6 @@
 /**
- * Roof/light line estimator using public geospatial data (Nominatim + Overpass)
- * with manual fallback inputs.
+ * Roof/light line estimator — Google Solar API (when configured), OSM footprint,
+ * or manual fallback inputs.
  */
 
 (function () {
@@ -20,6 +20,7 @@
     'front-sides': 0.6,
     full: 1.0,
   };
+  const SQFT_PER_SQM = 10.7639;
 
   function haversineMeters(lat1, lon1, lat2, lon2) {
     const R = 6371000;
@@ -32,11 +33,9 @@
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
-  /** Shoelace formula — returns area in m² for lat/lon polygon (local projection). */
   function polygonAreaSqMeters(coords) {
     if (coords.length < 3) return 0;
-    const centerLat =
-      coords.reduce((s, c) => s + c.lat, 0) / coords.length;
+    const centerLat = coords.reduce((s, c) => s + c.lat, 0) / coords.length;
     const toXY = (lat, lon) => {
       const x = haversineMeters(centerLat, lon, centerLat, coords[0].lon);
       const y = haversineMeters(lat, coords[0].lon, centerLat, coords[0].lon);
@@ -58,22 +57,90 @@
     let p = 0;
     for (let i = 0; i < coords.length; i++) {
       const j = (i + 1) % coords.length;
-      p += haversineMeters(
-        coords[i].lat,
-        coords[i].lon,
-        coords[j].lat,
-        coords[j].lon
-      );
+      p += haversineMeters(coords[i].lat, coords[i].lon, coords[j].lat, coords[j].lon);
     }
     return p;
   }
 
   function sqMetersToSqFeet(m2) {
-    return m2 * 10.7639;
+    return m2 * SQFT_PER_SQM;
   }
 
   function metersToFeet(m) {
     return m * 3.28084;
+  }
+
+  function pitchDegToRoofType(pitchDeg) {
+    if (pitchDeg == null) return null;
+    if (pitchDeg < 5) return 'flat';
+    if (pitchDeg < 15) return 'gable';
+    if (pitchDeg < 30) return 'hip';
+    return 'complex';
+  }
+
+  function parseSolarResponse(data) {
+    const sp = data.solarPotential;
+    if (!sp) return null;
+    const whole = sp.wholeRoofStats || {};
+    const roofM2 = whole.areaMeters2;
+    if (!roofM2) return null;
+
+    const segs = sp.roofSegmentStats || [];
+    const biggest = segs.reduce(
+      (best, seg) =>
+        (seg.stats?.areaMeters2 || 0) > (best.stats?.areaMeters2 || 0) ? seg : best,
+      segs[0] || {}
+    );
+    const pitchDeg =
+      biggest?.pitchDegrees != null ? Math.round(biggest.pitchDegrees * 10) / 10 : null;
+    const groundM2 =
+      segs.reduce((sum, seg) => sum + (seg.stats?.groundAreaMeters2 || 0), 0) ||
+      whole.groundAreaMeters2 ||
+      roofM2;
+
+    const img = data.imageryDate || {};
+    const imageryDate = img.year
+      ? `${img.year}-${String(img.month || 1).padStart(2, '0')}`
+      : null;
+
+    return {
+      roofAreaSqFt: Math.round(roofM2 * SQFT_PER_SQM),
+      groundAreaSqFt: Math.round(groundM2 * SQFT_PER_SQM),
+      segments: segs.length,
+      pitchDeg,
+      imageryQuality: data.imageryQuality || null,
+      imageryDate,
+      inferredRoofType: pitchDegToRoofType(pitchDeg),
+    };
+  }
+
+  async function fetchGoogleSolar(lat, lon) {
+    try {
+      const proxy = await fetch(`/api/solar?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`);
+      if (proxy.ok) {
+        const parsed = parseSolarResponse(await proxy.json());
+        if (parsed) return parsed;
+      }
+    } catch (_) {
+      /* proxy unavailable locally — try direct key */
+    }
+
+    const key = (cfg.googleMapsApiKey || '').trim();
+    if (!key) return null;
+
+    const url = new URL('https://solar.googleapis.com/v1/buildingInsights:findClosest');
+    url.searchParams.set('location.latitude', String(lat));
+    url.searchParams.set('location.longitude', String(lon));
+    url.searchParams.set('requiredQuality', 'BASE');
+    url.searchParams.set('key', key);
+
+    try {
+      const res = await fetch(url.toString());
+      if (!res.ok) return null;
+      return parseSolarResponse(await res.json());
+    } catch (_) {
+      return null;
+    }
   }
 
   async function geocodeAddress(address) {
@@ -84,15 +151,12 @@
       addressdetails: '1',
       countrycodes: 'us',
     });
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?${params}`,
-      {
-        headers: {
-          Accept: 'application/json',
-          'User-Agent': cfg.nominatimUserAgent || 'ThinRedLineEstimator/1.0',
-        },
-      }
-    );
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': cfg.nominatimUserAgent || 'ThinRedLineEstimator/1.0',
+      },
+    });
     if (!res.ok) throw new Error('Geocoding service unavailable.');
     const data = await res.json();
     if (!data.length) throw new Error('Address not found. Try manual entry.');
@@ -161,17 +225,24 @@
     coverage = 'front-sides',
     perimeterFt = null,
     dataSource = 'manual',
+    solarMeta = null,
   }) {
+    const effectiveRoofType =
+      dataSource === 'google-solar' && solarMeta?.inferredRoofType
+        ? solarMeta.inferredRoofType
+        : roofType;
     const storyMult = storyMultipliers[stories] ?? storyMultipliers[1];
-    const roofMult = roofMultipliers[roofType] ?? 1;
+    const roofMult = roofMultipliers[effectiveRoofType] ?? 1;
     const coverageMult = coverageOptions[coverage] ?? 0.6;
+    const segmentMult =
+      solarMeta?.segments > 2 ? 1 + Math.min(0.25, (solarMeta.segments - 2) * 0.06) : 1;
 
     let rooflineFt;
     if (perimeterFt) {
-      rooflineFt = perimeterFt * storyMult * roofMult * coverageMult;
+      rooflineFt = perimeterFt * storyMult * roofMult * coverageMult * segmentMult;
     } else {
       const approxPerimeter = Math.sqrt(footprintSqFt) * perimeterFactor;
-      rooflineFt = approxPerimeter * storyMult * roofMult * coverageMult;
+      rooflineFt = approxPerimeter * storyMult * roofMult * coverageMult * segmentMult;
     }
 
     const priceLow = Math.round(rooflineFt * priceMin);
@@ -182,32 +253,57 @@
       priceLow,
       priceHigh,
       footprintSqFt: Math.round(footprintSqFt),
+      roofAreaSqFt: solarMeta?.roofAreaSqFt || null,
       dataSource,
-      assumptions: buildAssumptions(stories, roofType, coverage, dataSource),
+      effectiveRoofType,
+      solarMeta,
+      assumptions: buildAssumptions(stories, effectiveRoofType, coverage, dataSource, solarMeta),
     };
   }
 
-  function buildAssumptions(stories, roofType, coverage, dataSource) {
+  function buildAssumptions(stories, roofType, coverage, dataSource, solarMeta) {
     const parts = [];
-    if (dataSource === 'osm') {
+    if (dataSource === 'google-solar') {
+      parts.push(
+        `Measured roof data from Google Solar (${solarMeta.segments} segment${solarMeta.segments !== 1 ? 's' : ''}` +
+          (solarMeta.pitchDeg != null ? `, ~${solarMeta.pitchDeg}° pitch` : '') +
+          ').'
+      );
+      if (solarMeta.imageryDate) {
+        parts.push(`Satellite imagery dated ${solarMeta.imageryDate}.`);
+      }
+    } else if (dataSource === 'osm') {
       parts.push('Building footprint from OpenStreetMap (may not match your exact roofline).');
     } else {
       parts.push('Estimate based on entered square footage and typical home proportions.');
     }
     parts.push(`${stories}-story home, ${roofType} roof, ${coverage.replace('-', ' & ')} coverage.`);
-    parts.push(`Pricing range $${priceMin}–$${priceMax}/linear foot installed (materials, labor, removal & storage).`);
+    parts.push(
+      `Pricing range $${priceMin}–$${priceMax}/linear foot installed (materials, labor, removal & storage).`
+    );
     parts.push('Final quote may differ based on roof access, tree obstructions, and design complexity.');
     return parts;
   }
 
+  function sourceLabel(dataSource) {
+    if (dataSource === 'google-solar') return 'Google Solar';
+    if (dataSource === 'osm') return 'OpenStreetMap';
+    return 'manual';
+  }
+
   function renderResult(container, result) {
     container.classList.remove('empty');
+    const solarExtra =
+      result.dataSource === 'google-solar' && result.roofAreaSqFt
+        ? `<p class="estimate-detail">Roof area: ~${result.roofAreaSqFt.toLocaleString()} sq ft (measured)</p>`
+        : '';
     container.innerHTML = `
-      <p class="estimate-detail">Estimated roofline for lights</p>
+      <p class="estimate-detail">Estimated roofline for Christmas lights</p>
       <p class="estimate-price">${result.rooflineFt.toLocaleString()} linear ft</p>
       <p class="estimate-detail">Ballpark installed price</p>
       <p class="estimate-price">$${result.priceLow.toLocaleString()} – $${result.priceHigh.toLocaleString()}</p>
-      ${result.footprintSqFt ? `<p class="estimate-detail">Footprint: ~${result.footprintSqFt.toLocaleString()} sq ft (${result.dataSource === 'osm' ? 'OpenStreetMap' : 'manual'})</p>` : ''}
+      ${result.footprintSqFt ? `<p class="estimate-detail">Footprint: ~${result.footprintSqFt.toLocaleString()} sq ft (${sourceLabel(result.dataSource)})</p>` : ''}
+      ${solarExtra}
       <div class="disclaimer">
         <strong>Estimate only.</strong>
         <ul style="margin:0.5rem 0 0; padding-left:1.1rem;">
@@ -237,7 +333,7 @@
       return;
     }
 
-    setStatus(statusEl, 'loading', 'Looking up address and building footprint…');
+    setStatus(statusEl, 'loading', 'Looking up address and roof measurements…');
     resultEl.classList.add('empty');
     resultEl.textContent = 'Calculating…';
 
@@ -245,24 +341,30 @@
       const geo = await geocodeAddress(address);
       setStatus(statusEl, 'loading', `Found: ${geo.displayName.split(',').slice(0, 3).join(',')}…`);
 
-      const building = await fetchBuildingFootprint(geo.lat, geo.lon);
       let footprintSqFt;
       let perimeterFt = null;
       let dataSource = 'manual';
+      let solarMeta = null;
 
-      if (building) {
-        footprintSqFt = sqMetersToSqFeet(building.areaSqM);
-        perimeterFt = metersToFeet(building.perimeterM);
-        dataSource = 'osm';
-        setStatus(statusEl, 'success', 'Building footprint found via OpenStreetMap.');
+      setStatus(statusEl, 'loading', 'Checking Google Solar roof data…');
+      const solar = await fetchGoogleSolar(geo.lat, geo.lon);
+      if (solar) {
+        footprintSqFt = solar.groundAreaSqFt;
+        solarMeta = solar;
+        dataSource = 'google-solar';
+        setStatus(statusEl, 'success', 'Roof measured via Google Solar API.');
       } else {
-        footprintSqFt = parseInt(form.querySelector('[name="fallbackSqFt"]').value, 10) || 2000;
-        dataSource = 'manual';
-        setStatus(
-          statusEl,
-          'success',
-          'No OSM building outline found — using fallback square footage.'
-        );
+        const building = await fetchBuildingFootprint(geo.lat, geo.lon);
+        if (building) {
+          footprintSqFt = sqMetersToSqFeet(building.areaSqM);
+          perimeterFt = metersToFeet(building.perimeterM);
+          dataSource = 'osm';
+          setStatus(statusEl, 'success', 'Building footprint found via OpenStreetMap.');
+        } else {
+          footprintSqFt = parseInt(form.querySelector('[name="fallbackSqFt"]').value, 10) || 2000;
+          dataSource = 'manual';
+          setStatus(statusEl, 'success', 'No roof data found — using fallback square footage.');
+        }
       }
 
       const result = estimateFromInputs({
@@ -272,6 +374,7 @@
         coverage,
         perimeterFt,
         dataSource,
+        solarMeta,
       });
       renderResult(resultEl, result);
     } catch (err) {
