@@ -51,8 +51,11 @@ css/styles.css          Festive Christmas-themed styles
 js/config.js            Site URL, business info, estimator rates, optional API key
 js/estimator.js         Roof/light estimator (Google Solar → OSM → manual)
 js/main.js              Navigation, contact form → SMS
+js/visualize.js         "See Your Home Glow" — photo upload + roofline lights preview
 functions/api/solar.js  Cloudflare Pages Function — proxies Google Solar API
-images/                 Company photos (from thinredlineholidaylighting.com)
+functions/api/roofline.js  Optional Gemini Vision roofline auto-detect
+images/                 Company photos + og-image.jpg (festive social preview)
+scripts/generate_og_image.py  Regenerate og-image.jpg
 _headers / _redirects   Cloudflare Pages config
 wrangler.toml           Pages project metadata
 ```
@@ -81,6 +84,33 @@ Without a key, the estimator falls back to OpenStreetMap footprints and manual e
 
 **Troubleshooting:** If `/api/solar` returns `403` with `API_KEY_IP_ADDRESS_BLOCKED`, edit the key in [Google Cloud Credentials](https://console.cloud.google.com/apis/credentials) and remove IP address restrictions (or create a dedicated server key for Cloudflare).
 
+## See Your Home Glow (photo visualizer)
+
+Interactive client-side preview: upload a house photo, trace the roofline by tapping/clicking, and overlay warm Christmas lights on canvas.
+
+### How it works
+
+1. **Upload** — JPG/PNG photo stays in the browser (never uploaded unless you use auto-detect).
+2. **Trace roofline** — Click or tap along eaves and peaks; lights render automatically along your path.
+3. **Customize** — Warm white, red/green, gold, or cranberry palettes; C7/C9 bulb sizes.
+4. **Download / share** — Save PNG preview or share via mobile Web Share API.
+
+### Optional AI roofline detection
+
+`POST /api/roofline` with `{ "image": "data:image/jpeg;base64,..." }` uses **Gemini Vision** to suggest roofline points when configured:
+
+```
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+Set in Cloudflare Pages → **Settings** → **Environment variables**. Enable the [Generative Language API](https://ai.google.dev/) on your Google Cloud project. Without this key, manual tracing works fully — the UI shows a friendly fallback message.
+
+Regenerate the festive social preview image:
+
+```bash
+python3 scripts/generate_og_image.py
+```
+
 ### Pricing & adjustments
 
 Configurable in `js/config.js`: `$8–$15/linear foot` installed. Adjustments for story count, roof type, coverage (front / front+sides / full), and segment complexity (Google Solar).
@@ -100,14 +130,14 @@ Attribution links to the company website and social profiles in the gallery sect
 
 ## Design
 
-Winter evening palette optimized for a **Christmas light installation** business:
+Festive **Christmas light installation** identity — professional, not cartoonish:
 
-- **Midnight navy** base — evokes winter night sky
-- **Evergreen** accents — seasonal without being cartoonish
-- **Warm gold** — Christmas light glow (CTAs, prices, highlights)
-- **Christmas red** — used sparingly for primary buttons (Thin Red Line brand)
-- Subtle CSS bokeh/light gradients, no heavy animation
-- **Playfair Display** for headings, **Inter** for body (accessibility)
+- **Evergreen + cranberry** on a deep winter-night base
+- **Warm gold glow** on CTAs, prices, and light-bulb motifs
+- **CSS string-light garland** (header), subtle **snowflake drift**, frost borders
+- **Mountains of Christmas** accent font + Playfair Display headings
+- Pill-shaped glowing buttons, wreath/card accents
+- Custom **og-image.jpg** (1200×630) with house silhouette + string lights
 - Real installation photos in hero, gallery, and service cards
 
 ## SEO checklist

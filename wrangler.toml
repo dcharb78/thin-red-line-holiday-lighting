@@ -15,3 +15,6 @@ SITE_URL = "https://thinredlineholidaylighting.com"
 # Google Solar API proxy (functions/api/solar.js):
 # Set GOOGLE_MAPS_API_KEY in Cloudflare Pages → Settings → Environment variables.
 # Enable "Solar API" + billing on your Google Cloud project.
+
+# Optional Gemini roofline auto-detect (functions/api/roofline.js):
+# GEMINI_API_KEY=your-gemini-api-key
