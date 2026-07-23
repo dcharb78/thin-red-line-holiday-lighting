@@ -93,10 +93,7 @@
     );
     const pitchDeg =
       biggest?.pitchDegrees != null ? Math.round(biggest.pitchDegrees * 10) / 10 : null;
-    const groundM2 =
-      segs.reduce((sum, seg) => sum + (seg.stats?.groundAreaMeters2 || 0), 0) ||
-      whole.groundAreaMeters2 ||
-      roofM2;
+    const groundM2 = segs.reduce((sum, seg) => sum + (seg.stats?.groundAreaMeters2 || 0), 0) || null;
 
     const img = data.imageryDate || {};
     const imageryDate = img.year
@@ -105,7 +102,7 @@
 
     return {
       roofAreaSqFt: Math.round(roofM2 * SQFT_PER_SQM),
-      groundAreaSqFt: Math.round(groundM2 * SQFT_PER_SQM),
+      groundAreaSqFt: groundM2 ? Math.round(groundM2 * SQFT_PER_SQM) : null,
       segments: segs.length,
       pitchDeg,
       imageryQuality: data.imageryQuality || null,
@@ -349,7 +346,7 @@
       setStatus(statusEl, 'loading', 'Checking Google Solar roof data…');
       const solar = await fetchGoogleSolar(geo.lat, geo.lon);
       if (solar) {
-        footprintSqFt = solar.groundAreaSqFt;
+        footprintSqFt = solar.groundAreaSqFt || solar.roofAreaSqFt;
         solarMeta = solar;
         dataSource = 'google-solar';
         setStatus(statusEl, 'success', 'Roof measured via Google Solar API.');
