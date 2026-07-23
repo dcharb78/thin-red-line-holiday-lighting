@@ -117,16 +117,32 @@ Configurable in `js/config.js`: `$8–$15/linear foot` installed. Adjustments fo
 
 ## Photos
 
-Real photos sourced from [thinredlineholidaylighting.com](https://thinredlineholidaylighting.com/) (GoDaddy-hosted public images):
+Real photos from the company website and Facebook albums (5 albums scraped, EXIF stripped — no GPS or camera metadata):
 
-| File | Source |
-|------|--------|
-| `hero-installation.jpg` | Main site hero — Christmas light installation |
-| `gallery-residential.jpg` | Site gallery thumbnail |
-| `about-team.jpg` | About page — installation team |
-| `logo.png` | Company logo |
+| Source | Count |
+|--------|-------|
+| Facebook albums | ~45 installation photos |
+| Website originals | hero, gallery-residential, about-team |
 
-Attribution links to the company website and social profiles in the gallery section.
+Regenerate the gallery after scraping new Facebook photos:
+
+```bash
+python3 scripts/process-all-social-images.py
+python3 scripts/update-gallery.mjs
+```
+
+Attribution links to Facebook, Instagram, and TikTok in the gallery section.
+
+### Scraping workflow
+
+```bash
+node scripts/discover-fb-albums.mjs   # find album URLs
+node scripts/fb-scrape-all.mjs        # download raw images to scripts/social-raw/
+python3 scripts/process-all-social-images.py  # strip EXIF, resize, write manifest
+node scripts/update-gallery.mjs       # inject gallery HTML into index.html
+```
+
+All processed images have `exif_stripped: true` in `scripts/processed-images.json`. Thumbnails and banner crops are filtered out of the public gallery.
 
 ## Design
 

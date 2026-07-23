@@ -1,0 +1,4 @@
+node_modules/
+.wrangler/
+scripts/social-raw/
+scripts/scrape-log.txt

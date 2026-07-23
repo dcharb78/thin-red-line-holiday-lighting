@@ -521,20 +521,26 @@ a:hover {
 .gallery-grid {
   display: grid;
   gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.gallery-grid-large {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
 
 @media (min-width: 640px) {
   .gallery-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   }
 }
 
 @media (min-width: 960px) {
-  .gallery-grid {
+  .gallery-grid:not(.gallery-grid-large) {
     grid-template-columns: 2fr 1fr 1fr;
   }
 
-  .gallery-item-featured {
+  .gallery-grid-large .gallery-item-featured {
+    grid-column: span 2;
     grid-row: span 2;
   }
 }

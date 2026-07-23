@@ -40,4 +40,30 @@
     const lead = lc.readContactLead(contactForm);
     lc.openQuoteSms(lead, lead.message ? [] : ['Please send my free personalized quote.']);
   });
+
+  const estimatorPanel = document.querySelector('#estimator .estimator-panel');
+  const syncLeadToContact = () => {
+    if (!estimatorPanel || !contactForm) return;
+    const map = [
+      ['leadName', 'name'],
+      ['leadEmail', 'email'],
+      ['leadPhone', 'phone'],
+      ['leadAddress', 'address'],
+    ];
+    map.forEach(([from, to]) => {
+      const src = estimatorPanel.querySelector(`[name="${from}"]`);
+      const dst = contactForm.querySelector(`[name="${to}"]`);
+      if (src?.value && dst && !dst.value.trim()) dst.value = src.value.trim();
+    });
+  };
+
+  estimatorPanel?.querySelectorAll('input').forEach((input) => {
+    input.addEventListener('change', syncLeadToContact);
+  });
+
+  document.querySelector('a[href="#contact-form"]')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    contactForm?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    contactForm?.querySelector('[name="name"]')?.focus();
+  });
 })();

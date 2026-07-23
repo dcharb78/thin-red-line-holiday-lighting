@@ -17,10 +17,10 @@
     if (input.type === 'tel' && digitsOnly(value).length < 10) {
       return 'Enter a valid 10-digit phone number.';
     }
-    if (input.name === 'name' && value.length < 2) {
+    if ((input.name === 'name' || input.name === 'leadName') && value.length < 2) {
       return 'Enter your full name.';
     }
-    if (input.name === 'address' && value.length < 5) {
+    if ((input.name === 'address' || input.name === 'leadAddress') && value.length < 5) {
       return 'Enter a complete property address.';
     }
     return '';
@@ -68,15 +68,16 @@
     return valid;
   }
 
-  function validateLeadFields(form, addressInput) {
-    const name = form.querySelector('[name="leadName"]');
-    const email = form.querySelector('[name="leadEmail"]');
-    const phone = form.querySelector('[name="leadPhone"]');
+  function validateLeadFields(panel) {
+    const name = panel.querySelector('[name="leadName"]');
+    const email = panel.querySelector('[name="leadEmail"]');
+    const phone = panel.querySelector('[name="leadPhone"]');
+    const address = panel.querySelector('[name="leadAddress"]');
     return validateFields([
       { input: name, label: 'Name' },
       { input: email, label: 'Email' },
       { input: phone, label: 'Phone' },
-      { input: addressInput, label: 'Address' },
+      { input: address, label: 'Address' },
     ]);
   }
 
@@ -89,13 +90,13 @@
     ]);
   }
 
-  function readLeadFromEstimator(addressInput) {
+  function readLeadFromEstimator() {
     const panel = document.querySelector('#estimator .estimator-panel');
     return {
       name: panel?.querySelector('[name="leadName"]')?.value.trim() || '',
       email: panel?.querySelector('[name="leadEmail"]')?.value.trim() || '',
       phone: panel?.querySelector('[name="leadPhone"]')?.value.trim() || '',
-      address: addressInput?.value.trim() || '',
+      address: panel?.querySelector('[name="leadAddress"]')?.value.trim() || '',
     };
   }
 

@@ -332,15 +332,15 @@
   }
 
   async function runAddressEstimate(form, resultEl, statusEl) {
-    const addressInput = form.querySelector('[name="address"]');
+    const panel = form.closest('.estimator-panel');
     const lc = window.LeadCapture;
-    if (!lc?.validateLeadFields(form.closest('.estimator-panel'), addressInput)) {
+    if (!lc?.validateLeadFields(panel)) {
       setStatus(statusEl, 'error', 'Please complete your contact information and address.');
       return;
     }
 
-    const lead = lc.readLeadFromEstimator(addressInput);
-    const address = addressInput.value.trim();
+    const lead = lc.readLeadFromEstimator();
+    const address = lead.address;
     const stories = parseInt(form.querySelector('[name="stories"]').value, 10);
     const roofType = form.querySelector('[name="roofType"]').value;
     const coverage = form.querySelector('[name="coverage"]').value;
@@ -402,14 +402,14 @@
   }
 
   function runManualEstimate(form, resultEl, statusEl) {
-    const addressInput = form.querySelector('[name="address"]');
+    const panel = form.closest('.estimator-panel');
     const lc = window.LeadCapture;
-    if (!lc?.validateLeadFields(form.closest('.estimator-panel'), addressInput)) {
+    if (!lc?.validateLeadFields(panel)) {
       setStatus(statusEl, 'error', 'Please complete your contact information and address.');
       return;
     }
 
-    const lead = lc.readLeadFromEstimator(addressInput);
+    const lead = lc.readLeadFromEstimator();
     const sqFt = parseInt(form.querySelector('[name="sqFt"]').value, 10);
     const stories = parseInt(form.querySelector('[name="storiesManual"]').value, 10);
     const roofType = form.querySelector('[name="roofTypeManual"]').value;

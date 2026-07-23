@@ -270,7 +270,7 @@
     link.click();
     drawing = true;
     render();
-    setStatus('Preview downloaded! Text us this image for a custom quote.', 'success');
+    setStatus('Preview downloaded! Use Get Your Free Quote below to send us this image.', 'success');
   });
 
   btnShare?.addEventListener('click', async () => {
