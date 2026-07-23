@@ -68,15 +68,18 @@ wrangler.toml           Pages project metadata
 ### Google Solar API setup
 
 1. Create a [Google Cloud project](https://console.cloud.google.com/) and enable **Solar API** (requires billing; Google provides free monthly credits).
-2. Create an API key and restrict it to the Solar API + your domain(s).
-3. **Recommended (keeps key server-side):** In Cloudflare Pages → **Settings** → **Environment variables**, add:
+2. Create an API key. Under **API restrictions**, allow **Solar API** only.
+3. Under **Application restrictions**, use **None** for the Cloudflare proxy key (Pages Functions call Google from Cloudflare IPs, not your browser — IP or HTTP referrer locks will cause `403 API_KEY_IP_ADDRESS_BLOCKED`). RoofingLeads may use a separate key restricted to your local IP for dev.
+4. **Recommended (keeps key server-side):** In Cloudflare Pages → **Settings** → **Environment variables**, add:
    ```
    GOOGLE_MAPS_API_KEY=your-key-here
    ```
    The `/api/solar` Pages Function proxies requests to Google.
-4. **Optional client-side fallback:** Set `googleMapsApiKey` in `js/config.js` (restrict the key to your domain in Google Cloud Console).
+5. **Optional client-side fallback:** Set `googleMapsApiKey` in `js/config.js` (restrict that key to your domain in Google Cloud Console).
 
 Without a key, the estimator falls back to OpenStreetMap footprints and manual entry.
+
+**Troubleshooting:** If `/api/solar` returns `403` with `API_KEY_IP_ADDRESS_BLOCKED`, edit the key in [Google Cloud Credentials](https://console.cloud.google.com/apis/credentials) and remove IP address restrictions (or create a dedicated server key for Cloudflare).
 
 ### Pricing & adjustments
 
