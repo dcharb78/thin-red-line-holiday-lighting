@@ -1,0 +1,9 @@
+# Cloudflare Pages redirects
+# https://developers.cloudflare.com/pages/configuration/redirects/
+
+# Example: redirect www to apex (enable after custom domain is connected)
+# https://www.thinredlineholidaylighting.com/* https://thinredlineholidaylighting.com/:splat 301
+
+# Legacy path redirects (uncomment if migrating from old GoDaddy site)
+# /home / 301
+# /contact-us /#contact 301

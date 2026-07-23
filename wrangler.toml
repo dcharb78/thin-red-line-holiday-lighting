@@ -1,0 +1,13 @@
+# Cloudflare Pages / Workers configuration
+# https://developers.cloudflare.com/pages/functions/wrangler-configuration/
+
+name = "thin-red-line-holiday-lighting"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "."
+
+# No build command required — static HTML/CSS/JS site.
+# Deploy the repository root directly to Cloudflare Pages.
+
+[vars]
+# Optional: override in Cloudflare dashboard for preview deployments
+SITE_URL = "https://thinredlineholidaylighting.com"
