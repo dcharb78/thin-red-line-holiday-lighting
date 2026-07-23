@@ -288,12 +288,16 @@
     return 'manual';
   }
 
-  function renderResult(container, result) {
+  function renderResult(container, result, lead) {
     container.classList.remove('empty');
     const solarExtra =
       result.dataSource === 'google-solar' && result.roofAreaSqFt
         ? `<p class="estimate-detail">Roof area: ~${result.roofAreaSqFt.toLocaleString()} sq ft (measured)</p>`
         : '';
+    const estimateSummary = [
+      `Online estimate: ~${result.rooflineFt.toLocaleString()} linear ft`,
+      `Ballpark price: $${result.priceLow.toLocaleString()} – $${result.priceHigh.toLocaleString()}`,
+    ];
     container.innerHTML = `
       <p class="estimate-detail">Estimated roofline for Christmas lights</p>
       <p class="estimate-price">${result.rooflineFt.toLocaleString()} linear ft</p>
@@ -308,9 +312,17 @@
         </ul>
       </div>
       <p style="margin-top:1rem;">
-        <a href="#contact" class="btn btn-primary">Get Your Free Quote</a>
+        <button type="button" class="btn btn-primary" id="estimate-quote-btn">Get Your Free Quote</button>
       </p>
     `;
+    const quoteBtn = container.querySelector('#estimate-quote-btn');
+    quoteBtn?.addEventListener('click', () => {
+      window.LeadCapture?.openQuoteSms(lead, [
+        '---',
+        ...estimateSummary,
+        'Please send my free personalized quote.',
+      ]);
+    });
   }
 
   function setStatus(el, type, msg) {
@@ -320,7 +332,15 @@
   }
 
   async function runAddressEstimate(form, resultEl, statusEl) {
-    const address = form.querySelector('[name="address"]').value.trim();
+    const addressInput = form.querySelector('[name="address"]');
+    const lc = window.LeadCapture;
+    if (!lc?.validateLeadFields(form.closest('.estimator-panel'), addressInput)) {
+      setStatus(statusEl, 'error', 'Please complete your contact information and address.');
+      return;
+    }
+
+    const lead = lc.readLeadFromEstimator(addressInput);
+    const address = addressInput.value.trim();
     const stories = parseInt(form.querySelector('[name="stories"]').value, 10);
     const roofType = form.querySelector('[name="roofType"]').value;
     const coverage = form.querySelector('[name="coverage"]').value;
@@ -373,7 +393,7 @@
         dataSource,
         solarMeta,
       });
-      renderResult(resultEl, result);
+      renderResult(resultEl, result, lead);
     } catch (err) {
       setStatus(statusEl, 'error', err.message || 'Estimate failed. Try manual entry.');
       resultEl.classList.add('empty');
@@ -382,6 +402,14 @@
   }
 
   function runManualEstimate(form, resultEl, statusEl) {
+    const addressInput = form.querySelector('[name="address"]');
+    const lc = window.LeadCapture;
+    if (!lc?.validateLeadFields(form.closest('.estimator-panel'), addressInput)) {
+      setStatus(statusEl, 'error', 'Please complete your contact information and address.');
+      return;
+    }
+
+    const lead = lc.readLeadFromEstimator(addressInput);
     const sqFt = parseInt(form.querySelector('[name="sqFt"]').value, 10);
     const stories = parseInt(form.querySelector('[name="storiesManual"]').value, 10);
     const roofType = form.querySelector('[name="roofTypeManual"]').value;
@@ -400,7 +428,7 @@
       coverage,
       dataSource: 'manual',
     });
-    renderResult(resultEl, result);
+    renderResult(resultEl, result, lead);
   }
 
   function initEstimator() {
@@ -430,6 +458,11 @@
     manualForm?.addEventListener('submit', (e) => {
       e.preventDefault();
       runManualEstimate(manualForm, resultEl, statusEl);
+    });
+
+    const panel = document.querySelector('#estimator .estimator-panel');
+    panel?.querySelectorAll('input').forEach((input) => {
+      input.addEventListener('input', () => window.LeadCapture?.showFieldError(input, ''));
     });
   }
 

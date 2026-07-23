@@ -948,6 +948,41 @@ textarea:focus {
   outline-offset: 1px;
 }
 
+input.input-invalid,
+textarea.input-invalid {
+  border-color: var(--red-light);
+}
+
+.field-error {
+  color: var(--red-light);
+  font-size: 0.8rem;
+  margin-top: 0.35rem;
+}
+
+.form-error {
+  margin-bottom: 1rem;
+}
+
+.lead-capture {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.15rem 0.25rem;
+  margin-bottom: 1.25rem;
+  background: rgba(240, 193, 77, 0.04);
+}
+
+.lead-capture legend {
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0 0.35rem;
+}
+
+.lead-capture-note {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
 .form-row {
   display: grid;
   gap: 1rem;

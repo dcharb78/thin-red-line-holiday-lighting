@@ -16,15 +16,28 @@
   if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   const contactForm = document.getElementById('contact-form');
+  const contactFormError = document.getElementById('contact-form-error');
+
+  contactForm?.querySelectorAll('input').forEach((input) => {
+    input.addEventListener('input', () => {
+      window.LeadCapture?.showFieldError(input, '');
+      if (contactFormError) contactFormError.hidden = true;
+    });
+  });
+
   contactForm?.addEventListener('submit', (e) => {
     e.preventDefault();
-    const cfg = window.SITE_CONFIG?.business;
-    const name = contactForm.querySelector('[name="name"]')?.value || '';
-    const phone = contactForm.querySelector('[name="phone"]')?.value || '';
-    const message = contactForm.querySelector('[name="message"]')?.value || '';
-    const body = encodeURIComponent(
-      `Hi, I'm ${name}. Phone: ${phone}\n\n${message}`
-    );
-    window.location.href = `sms:${cfg?.phonePrimaryTel || '+19258954443'}?&body=${body}`;
+    const lc = window.LeadCapture;
+    if (!lc?.validateContactForm(contactForm)) {
+      if (contactFormError) {
+        contactFormError.textContent = 'Please fix the highlighted fields before sending.';
+        contactFormError.hidden = false;
+      }
+      return;
+    }
+
+    if (contactFormError) contactFormError.hidden = true;
+    const lead = lc.readContactLead(contactForm);
+    lc.openQuoteSms(lead, lead.message ? [] : ['Please send my free personalized quote.']);
   });
 })();
